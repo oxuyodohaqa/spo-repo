@@ -132,7 +132,13 @@ def resolve_country_inputs(country: str, country_flag: str | None) -> Tuple[str,
     return normalized, ""
 
 
-def paste_photo(base: Image.Image, draw: ImageDraw.ImageDraw, data: CardData, area: Tuple[int, int, int, int]) -> None:
+def paste_photo(
+    base: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    data: CardData,
+    area: Tuple[int, int, int, int],
+    require_photo: bool = False,
+) -> None:
     x0, y0, x1, y1 = area
     if data.photo_path and data.photo_path.exists():
         try:
@@ -153,6 +159,9 @@ def paste_photo(base: Image.Image, draw: ImageDraw.ImageDraw, data: CardData, ar
         except Exception as exc:  # pylint: disable=broad-except
             logger.warning("Failed to load photo %s: %s", data.photo_path, exc)
 
+    if require_photo:
+        raise FileNotFoundError("Photo is required but could not be loaded; check the --photo path")
+
     # Placeholder if no photo available
     draw.rectangle(area, fill="#e5e7eb", outline="#cbd5e1", width=4)
     placeholder_text = "Photo"
@@ -166,7 +175,7 @@ def paste_photo(base: Image.Image, draw: ImageDraw.ImageDraw, data: CardData, ar
     )
 
 
-def render_card(data: CardData, output_path: Path) -> Path:
+def render_card(data: CardData, output_path: Path, require_photo: bool = False) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -215,7 +224,7 @@ def render_card(data: CardData, output_path: Path) -> Path:
         int(width * 0.38),
         int(height * 0.68),
     )
-    paste_photo(base, draw, data, photo_area)
+    paste_photo(base, draw, data, photo_area, require_photo=require_photo)
 
     info_y = photo_area[3] + 20
     draw.text((photo_area[0], info_y), f"Student ID {data.student_id}", font=fonts["small"], fill="#111827")
@@ -261,6 +270,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alias", help="Secondary name line", default=None)
     parser.add_argument("--photo", type=Path, help="Path to a photo to place on the card")
     parser.add_argument(
+        "--require-photo",
+        action="store_true",
+        help="Fail if the photo cannot be loaded (useful when uploads are mandatory)",
+    )
+    parser.add_argument(
         "--list-countries",
         action="store_true",
         help="Show built-in country presets and exit",
@@ -303,6 +317,9 @@ def main() -> None:
             print(f"- {flag} {name.title()}")
         return
 
+    if args.require_photo and not args.photo:
+        raise SystemExit("--require-photo is set but no --photo path was provided")
+
     require_fields(args)
     country, country_flag = resolve_country_inputs(args.country, args.country_flag)
     data = CardData(
@@ -320,7 +337,7 @@ def main() -> None:
         contact_info=args.contact_info,
         photo_path=args.photo,
     )
-    render_card(data, args.output)
+    render_card(data, args.output, require_photo=args.require_photo)
 
 
 if __name__ == "__main__":
