@@ -9,6 +9,7 @@ GitHub: https://github.com/Adeebaabkhan
 
 import sys
 import os
+import re
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import requests
@@ -20,6 +21,34 @@ import json
 from datetime import datetime, timedelta
 from io import BytesIO
 import time
+
+
+COUNTRY_CONFIG = {
+    'US': {'name': 'United States', 'flag': '🇺🇸', 'collegeFile': 'sheerid_us.json'},
+    'CA': {'name': 'Canada', 'flag': '🇨🇦', 'collegeFile': 'sheerid_ca.json'},
+    'GB': {'name': 'United Kingdom', 'flag': '🇬🇧', 'collegeFile': 'sheerid_gb.json'},
+    'IN': {'name': 'India', 'flag': '🇮🇳', 'collegeFile': 'sheerid_in.json'},
+    'ID': {'name': 'Indonesia', 'flag': '🇮🇩', 'collegeFile': 'sheerid_id.json'},
+    'AU': {'name': 'Australia', 'flag': '🇦🇺', 'collegeFile': 'sheerid_au.json'},
+    'DE': {'name': 'Germany', 'flag': '🇩🇪', 'collegeFile': 'sheerid_de.json'},
+    'FR': {'name': 'France', 'flag': '🇫🇷', 'collegeFile': 'sheerid_fr.json'},
+    'ES': {'name': 'Spain', 'flag': '🇪🇸', 'collegeFile': 'sheerid_es.json'},
+    'IT': {'name': 'Italy', 'flag': '🇮🇹', 'collegeFile': 'sheerid_it.json'},
+    'BR': {'name': 'Brazil', 'flag': '🇧🇷', 'collegeFile': 'sheerid_br.json'},
+    'MX': {'name': 'Mexico', 'flag': '🇲🇽', 'collegeFile': 'sheerid_mx.json'},
+    'NL': {'name': 'Netherlands', 'flag': '🇳🇱', 'collegeFile': 'sheerid_nl.json'},
+    'SE': {'name': 'Sweden', 'flag': '🇸🇪', 'collegeFile': 'sheerid_se.json'},
+    'NO': {'name': 'Norway', 'flag': '🇳🇴', 'collegeFile': 'sheerid_no.json'},
+    'DK': {'name': 'Denmark', 'flag': '🇩🇰', 'collegeFile': 'sheerid_dk.json'},
+    'JP': {'name': 'Japan', 'flag': '🇯🇵', 'collegeFile': 'sheerid_jp.json'},
+    'KR': {'name': 'South Korea', 'flag': '🇰🇷', 'collegeFile': 'sheerid_kr.json'},
+    'SG': {'name': 'Singapore', 'flag': '🇸🇬', 'collegeFile': 'sheerid_sg.json'},
+    'NZ': {'name': 'New Zealand', 'flag': '🇳🇿', 'collegeFile': 'sheerid_nz.json'},
+    'ZA': {'name': 'South Africa', 'flag': '🇿🇦', 'collegeFile': 'sheerid_za.json'},
+    'CN': {'name': 'China', 'flag': '🇨🇳', 'collegeFile': 'sheerid_cn.json'},
+    'AE': {'name': 'United Arab Emirates', 'flag': '🇦🇪', 'collegeFile': 'sheerid_ae.json'},
+    'PH': {'name': 'Philippines', 'flag': '🇵🇭', 'collegeFile': 'sheerid_ph.json'},
+}
 
 class SheerIDCompliantGenerator:
     def __init__(self):
@@ -85,204 +114,87 @@ class SheerIDCompliantGenerator:
             print(f"⚠️ Warning: Could not clear data: {e}")
 
     def initialize_verified_colleges(self):
-        """Initialize SheerID-verified colleges (research-based)"""
-        self.colleges = {
-            # 🇺🇸 US COMMUNITY COLLEGES (High SheerID acceptance)
-            "us_01_csm": {
-                "name": "College of San Mateo",
-                "short": "CSM",
-                "campus": "San Mateo Campus",
-                "domain": "collegeofsanmateo.edu",
-                "color": "#003366",
-                "secondary_color": "#FFD700",
-                "location": "San Mateo, California, USA",
-                "country": "United States",
-                "established": "1922",
-                "academic_year": "2025-2026",
-                "current_semester": "Fall 2025",
-                "registrar_name": "DR. MARIA SANTOS-JOHNSON",
-                "cashier_name": "JENNIFER L. MARTINEZ",
-                "contact_number": "Tel: (650) 574-6161",
-                "website": "collegeofsanmateo.edu",
-                "type": "community_college",
-                "verification_status": "sheerid_verified"
-            },
-            "us_02_skyline": {
-                "name": "Skyline College",
-                "short": "SKYLINE",
-                "campus": "San Bruno Campus",
-                "domain": "skylinecollege.edu",
-                "color": "#0066CC",
-                "secondary_color": "#FFFFFF",
-                "location": "San Bruno, California, USA",
-                "country": "United States",
-                "established": "1969",
-                "academic_year": "2025-2026",
-                "current_semester": "Fall 2025",
-                "registrar_name": "DR. PATRICIA K. WONG",
-                "cashier_name": "MICHAEL R. DAVIS",
-                "contact_number": "Tel: (650) 738-4100",
-                "website": "skylinecollege.edu",
-                "type": "community_college",
-                "verification_status": "sheerid_verified"
-            },
-            "us_03_canada": {
-                "name": "Cañada College",
-                "short": "CANADA",
-                "campus": "Redwood City Campus",
-                "domain": "canadacollege.edu",
-                "color": "#228B22",
-                "secondary_color": "#FFD700",
-                "location": "Redwood City, California, USA",
-                "country": "United States",
-                "established": "1968",
-                "academic_year": "2025-2026",
-                "current_semester": "Fall 2025",
-                "registrar_name": "DR. CARLOS M. RODRIGUEZ",
-                "cashier_name": "LISA A. THOMPSON",
-                "contact_number": "Tel: (650) 306-3100",
-                "website": "canadacollege.edu",
-                "type": "community_college",
-                "verification_status": "sheerid_verified"
-            },
-            "us_04_foothill": {
-                "name": "Foothill College",
-                "short": "FOOTHILL",
-                "campus": "Los Altos Hills Campus",
-                "domain": "foothill.edu",
-                "color": "#8B0000",
-                "secondary_color": "#FFD700",
-                "location": "Los Altos Hills, California, USA",
-                "country": "United States",
-                "established": "1958",
-                "academic_year": "2025-2026",
-                "current_semester": "Fall 2025",
-                "registrar_name": "DR. SUSAN E. GARCIA",
-                "cashier_name": "ROBERT J. WILSON",
-                "contact_number": "Tel: (650) 949-7777",
-                "website": "foothill.edu",
-                "type": "community_college",
-                "verification_status": "sheerid_verified"
-            },
-            "us_05_deanza": {
-                "name": "De Anza College",
-                "short": "DEANZA",
-                "campus": "Cupertino Campus",
-                "domain": "deanza.edu",
-                "color": "#006400",
-                "secondary_color": "#FFFFFF",
-                "location": "Cupertino, California, USA",
-                "country": "United States",
-                "established": "1967",
-                "academic_year": "2025-2026",
-                "current_semester": "Fall 2025",
-                "registrar_name": "DR. ELENA P. MORALES",
-                "cashier_name": "DAVID S. CHEN",
-                "contact_number": "Tel: (408) 864-5678",
-                "website": "deanza.edu",
-                "type": "community_college",
-                "verification_status": "sheerid_verified"
-            },
-            
-            # 🇵🇭 PHILIPPINE UNIVERSITIES (SheerID Verified)
-            "ph_01_up": {
-                "name": "Our Lady of Fatima University",
-                "short": "olofu",
-                "campus": "Diliman Campus",
-                "domain": "up.edu.ph",
-                "color": "#8B0000",
-                "secondary_color": "#FFD700",
-                "location": "Quezon City, Philippines",
-                "country": "Philippines",
-                "established": "1908",
-                "academic_year": "2025-2026",
-                "current_semester": "First Semester AY 2025-2026",
-                "registrar_name": "DR. CARLOS R. PRIMO",
-                "cashier_name": "MS. MARIA T. SANTOS",
-                "contact_number": "Tel: (02) 8981-8500",
-                "website": "up.edu.ph",
-                "type": "state_university",
-                "verification_status": "sheerid_verified"
-            },
-            "ph_02_ateneo": {
-                "name": "Ateneo de Manila University",
-                "short": "ADMU",
-                "campus": "Loyola Heights Campus",
-                "domain": "ateneo.edu",
-                "color": "#003366",
-                "secondary_color": "#0066CC",
-                "location": "Quezon City, Philippines",
-                "country": "Philippines",
-                "established": "1859",
-                "academic_year": "2025-2026",
-                "current_semester": "First Semester AY 2025-2026",
-                "registrar_name": "DR. CARMEN S. GARCIA",
-                "cashier_name": "MR. RAFAEL C. TORRES",
-                "contact_number": "Tel: (02) 8426-6001",
-                "website": "ateneo.edu",
-                "type": "private_university",
-                "verification_status": "sheerid_verified"
-            },
-            "ph_03_dlsu": {
-                "name": "De La Salle University",
-                "short": "DLSU",
-                "campus": "Manila Campus",
-                "domain": "dlsu.edu.ph",
-                "color": "#006400",
-                "secondary_color": "#FFFFFF",
-                "location": "Manila, Philippines",
-                "country": "Philippines",
-                "established": "1911",
-                "academic_year": "2025-2026",
-                "current_semester": "First Semester AY 2025-2026",
-                "registrar_name": "DR. ANA M. REYES",
-                "cashier_name": "MR. LUIS P. SANTOS",
-                "contact_number": "Tel: (02) 8524-4611",
-                "website": "dlsu.edu.ph",
-                "type": "private_university",
-                "verification_status": "sheerid_verified"
-            },
-            
-            # 🇮🇳 INDIAN UNIVERSITIES (SheerID Verified)
-            "in_01_iit_bombay": {
-                "name": "Indian Institute of Technology Bombay",
-                "short": "IIT Bombay",
-                "campus": "Powai Campus",
-                "domain": "iitb.ac.in",
-                "color": "#000080",
-                "secondary_color": "#FFD700",
-                "location": "Mumbai, Maharashtra, India",
-                "country": "India",
-                "established": "1958",
-                "academic_year": "2025-2026",
-                "current_semester": "Autumn Semester 2025-26",
-                "registrar_name": "DR. RAJ K. SHARMA",
-                "cashier_name": "MS. PRIYA S. PATEL",
-                "contact_number": "Tel: +91-22-2572-2545",
-                "website": "iitb.ac.in",
-                "type": "technical_institute",
-                "verification_status": "sheerid_verified"
-            },
-            "in_02_du": {
-                "name": "Kaka Horam Singh College Of Law",
-                "short": "DU",
-                "campus": "North Campus",
-                "domain": "ka.ac.in",
-                "color": "#003366",
-                "secondary_color": "#FF6600",
-                "location": "New Delhi, India",
-                "country": "India",
-                "established": "1922",
-                "academic_year": "2025-2026",
-                "current_semester": "Odd Semester 2025-26",
-                "registrar_name": "DR. ROHIT K. SINGH",
-                "cashier_name": "MS. NEHA A. VERMA",
-                "contact_number": "Tel: +91-11-2766-7049",
-                "website": "du.ac.in",
-                "type": "central_university",
-                "verification_status": "sheerid_verified"
-            }
+        """Load SheerID-verified colleges from JSON files (names only)."""
+        self.colleges = {}
+        self.country_lookup = COUNTRY_CONFIG
+        self.load_colleges_from_json_files()
+
+    def load_colleges_from_json_files(self):
+        receipts_root = Path(__file__).parent
+        for country_code, meta in COUNTRY_CONFIG.items():
+            file_path = receipts_root / meta['collegeFile']
+            if not file_path.exists():
+                continue
+
+            try:
+                with open(file_path, 'r', encoding='utf-8') as handle:
+                    data = json.load(handle)
+            except Exception as exc:
+                print(f"⚠️  Could not read {file_path.name}: {exc}")
+                continue
+
+            for idx, entry in enumerate(data):
+                name = entry.get('name')
+                if not name:
+                    continue
+
+                college_key = f"{country_code.lower()}_{entry.get('id', idx)}"
+                self.colleges[college_key] = self._build_college_record(
+                    name=name,
+                    country_code=country_code,
+                    meta=meta,
+                    source_entry=entry
+                )
+
+        if not self.colleges:
+            print("⚠️  No college JSON files were found. You can still add a custom college from the menu.")
+
+    def _build_college_record(self, name, country_code, meta, source_entry):
+        short = self._derive_short_name(name)
+        domain = source_entry.get('domain') or f"{self._slugify_name(name)}.edu"
+        country_name = meta.get('name', country_code)
+        academic_year = f"{self.current_date.year}-{self.current_date.year + 1}"
+        current_semester = source_entry.get('currentSemester') or f"Semester {self.current_date.year}"
+
+        return {
+            "name": name,
+            "short": short,
+            "campus": source_entry.get('campus', 'Main Campus'),
+            "domain": domain,
+            "color": source_entry.get('primaryColor', '#003366'),
+            "secondary_color": source_entry.get('secondaryColor', '#FFD700'),
+            "location": source_entry.get('countryName', country_name),
+            "country": country_name,
+            "established": source_entry.get('established', str(self.current_date.year - 20)),
+            "academic_year": academic_year,
+            "current_semester": current_semester,
+            "registrar_name": source_entry.get('registrar', 'REGISTRAR OFFICE'),
+            "cashier_name": source_entry.get('cashier', 'CASHIER OFFICE'),
+            "contact_number": source_entry.get('contact', 'Tel: (000) 000-0000'),
+            "website": source_entry.get('website', domain),
+            "type": source_entry.get('type', 'UNIVERSITY'),
+            "verification_status": source_entry.get('verificationStatus', 'json_verified')
         }
+
+    def _derive_short_name(self, name: str) -> str:
+        parts = [segment[0] for segment in name.upper().split() if segment]
+        return (''.join(parts)[:8] or name[:8].upper())
+
+    def _slugify_name(self, name: str) -> str:
+        slug = re.sub(r'[^a-zA-Z0-9]+', '-', name.lower()).strip('-')
+        return slug or 'college'
+
+    def add_custom_college(self, name: str, country_name: str = 'Custom'):
+        country_code = 'CUSTOM'
+        key = f"custom_{len(self.colleges) + 1}"
+        meta = {'name': country_name, 'flag': '✨'}
+        self.colleges[key] = self._build_college_record(
+            name=name,
+            country_code=country_code,
+            meta=meta,
+            source_entry={'type': 'CUSTOM', 'countryName': country_name}
+        )
+        return key
 
     def initialize_realistic_subjects(self):
         """Initialize realistic current semester subjects"""
@@ -1157,72 +1069,77 @@ class SheerIDCompliantGenerator:
         print(f"🔗 GitHub: https://github.com/Adeebaabkhan")
         print(f"📁 Using receipts folder: {self.receipts_dir}")
         print(f"📚 Current Semester: Fall 2025 / First Semester AY 2025-2026")
-        
-        # Group colleges by country
-        us_colleges = [(k, v) for k, v in self.colleges.items() if v["country"] == "United States"]
-        ph_colleges = [(k, v) for k, v in self.colleges.items() if v["country"] == "Philippines"]
-        in_colleges = [(k, v) for k, v in self.colleges.items() if v["country"] == "India"]
-        
-        print(f"\n🇺🇸 US COMMUNITY COLLEGES (High SheerID Acceptance):")
-        for i, (key, college) in enumerate(us_colleges, 1):
-            print(f"{i:2d}. {college['name']} ({college['short']}) - {college['type']}")
-        
-        print(f"\n🇵🇭 PHILIPPINE UNIVERSITIES:")
-        start_num = len(us_colleges) + 1
-        for i, (key, college) in enumerate(ph_colleges, start_num):
-            print(f"{i:2d}. {college['name']} ({college['short']}) - {college['type']}")
-        
-        print(f"\n🇮🇳 INDIAN UNIVERSITIES:")
-        start_num = len(us_colleges) + len(ph_colleges) + 1
-        for i, (key, college) in enumerate(in_colleges, start_num):
-            print(f"{i:2d}. {college['name']} ({college['short']}) - {college['type']}")
-        
-        total_colleges = len(self.colleges)
+
+        country_groups = {}
+        for key, college in self.colleges.items():
+            country_groups.setdefault(college["country"], []).append((key, college))
+
+        index_map = []
+        counter = 1
+        for country_name in sorted(country_groups.keys()):
+            flag = next((m.get("flag", "🌍") for m in COUNTRY_CONFIG.values() if m.get("name") == country_name), "🌍")
+            print(f"\n{flag} {country_name}:")
+            for key, college in sorted(country_groups[country_name], key=lambda item: item[1]["name"]):
+                print(f"{counter:2d}. {college['name']} ({college['short']}) - {college['type']}")
+                index_map.append(key)
+                counter += 1
+
+        custom_option = counter
+        print(f"\n{custom_option:2d}. ➕ Enter a custom college name")
+
+        total_colleges = len(index_map)
         print(f"\n📊 DATABASE OVERVIEW:")
         print(f"   🎯 Total Verified Colleges: {total_colleges}")
-        print(f"   🇺🇸 US Community Colleges: {len(us_colleges)} (Highest Success Rate)")
-        print(f"   🇵🇭 Philippine Universities: {len(ph_colleges)}")
-        print(f"   🇮🇳 Indian Universities: {len(in_colleges)}")
-        print(f"   ✅ All colleges are SheerID-verified")
+        print(f"   🌍 Countries loaded from JSON: {len(country_groups)}")
+        print(f"   ✅ All colleges are loaded directly from JSON names")
         print(f"   📁 Reading students from: {self.students_file}")
         print(f"   📁 Saving documents to: {self.receipts_dir}")
-        
+
         print(f"\n💡 SHEERID SUCCESS TIPS:")
-        print(f"   🎯 US Community Colleges have 90-95% acceptance rates")
-        print(f"   📅 Documents use current semester dates (Fall 2025)")
+        print(f"   🎯 Use current semester dates for best acceptance")
         print(f"   📄 4 documents per student: ID, Enrollment, Schedule, Receipt")
         print(f"   🔍 All data is realistic and verifiable")
         print("=" * 80)
-        
-        return list(self.colleges.keys())
+
+        return index_map, custom_option
 
     def select_college(self):
         """College selection interface"""
-        college_keys = self.show_college_menu()
+        college_keys, custom_option = self.show_college_menu()
         total_colleges = len(college_keys)
-        
+
         while True:
             try:
-                choice = input(f"\nSelect college (1-{total_colleges}): ").strip()
+                choice = input(f"\nSelect college (1-{custom_option}): ").strip()
                 college_num = int(choice)
-                
-                if 1 <= college_num <= total_colleges:
+
+                if college_num == custom_option:
+                    custom_name = input("Enter custom college name: ").strip()
+                    if custom_name:
+                        college_key = self.add_custom_college(custom_name)
+                        college_keys.append(college_key)
+                        total_colleges += 1
+                        print(f"\n✅ Selected custom college: {custom_name}")
+                        return college_key
+                    print("❌ Custom name cannot be empty")
+
+                elif 1 <= college_num <= total_colleges:
                     college_key = college_keys[college_num - 1]
                     college_data = self.colleges[college_key]
-                    
+
                     print(f"\n✅ Selected: {college_data['name']} ({college_data['short']})")
                     print(f"📍 Location: {college_data['location']}")
                     print(f"🌍 Country: {college_data['country']}")
                     print(f"🎓 Type: {college_data['type']}")
                     print(f"✅ Verification: {college_data['verification_status']}")
                     print(f"📚 Current Semester: {college_data['current_semester']}")
-                    
+
                     if college_data["country"] == "United States":
                         print(f"🎯 EXCELLENT CHOICE! US Community Colleges have the highest SheerID acceptance rates!")
-                    
+
                     return college_key
                 else:
-                    print(f"❌ Please enter a number between 1 and {total_colleges}")
+                    print(f"❌ Please enter a number between 1 and {custom_option}")
                     
             except ValueError:
                 print("❌ Please enter a valid number")
@@ -1778,14 +1695,16 @@ def main():
     
     print("\n🏫 VERIFIED COLLEGE DATABASE:")
     generator = SheerIDCompliantGenerator()
-    us_count = len([c for c in generator.colleges.values() if c["country"] == "United States"])
-    ph_count = len([c for c in generator.colleges.values() if c["country"] == "Philippines"])
-    in_count = len([c for c in generator.colleges.values() if c["country"] == "India"])
-    
+    country_counts = {}
+    for college in generator.colleges.values():
+        country_counts[college["country"]] = country_counts.get(college["country"], 0) + 1
+
     print(f"   📊 Total Verified Colleges: {len(generator.colleges)}")
-    print(f"   🇺🇸 US Community Colleges: {us_count} (HIGHEST success rates)")
-    print(f"   🇵🇭 Philippine Universities: {ph_count}")
-    print(f"   🇮🇳 Indian Universities: {in_count}")
+    if country_counts:
+        for country, count in sorted(country_counts.items(), key=lambda item: item[0]):
+            print(f"   {country}: {count} from JSON")
+    else:
+        print("   ⚠️ No colleges loaded yet. Add one from the custom menu option.")
     print(f"   ✅ All colleges are SheerID-research verified")
     
     print("\n📁 RECEIPTS FOLDER STRUCTURE:")
