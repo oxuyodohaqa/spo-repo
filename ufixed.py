@@ -14,6 +14,8 @@ Target: 2000+ IDs per minute (10K in 5 minutes)
 
 import sys
 import os
+import re
+import logging
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import requests
@@ -28,6 +30,20 @@ import concurrent.futures
 import threading
 from functools import lru_cache
 import gc
+
+
+# --- Logging & Helpers (match b.py style) ---
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def clean_name(name: str) -> str:
+    """Membersihkan nama dari gelar dan karakter yang tidak diinginkan (konsisten dengan b.py)."""
+
+    name = re.sub(r"[.,]", "", name)
+    name = re.sub(r"\b(Drs?|Ir|H|Prof|S|M|Bapak|Ibu)\b", "", name, flags=re.IGNORECASE)
+    name = re.sub(r"\s+", " ", name).strip()
+    return name
 
 # ==================== CONFIGURATION ====================
 COUNTRY_CONFIG = {
@@ -623,10 +639,10 @@ class UnlimitedIDCardGenerator:
     def generate_student_data(self, college):
         fake = self.get_faker()
         config = COUNTRY_CONFIG[self.selected_country]
-        
+
         first_name = fake.first_name()
         last_name = fake.last_name()
-        full_name = f"{first_name} {last_name}".upper()
+        full_name = clean_name(f"{first_name} {last_name}")
         student_id = f"{fake.random_number(digits=8, fix_len=True)}"
         
         programs_by_country = {
@@ -848,11 +864,11 @@ class UnlimitedIDCardGenerator:
                     line = f"{student_data['full_name']}|{student_data['student_id']}|{student_data['college']['id']}|{student_data['college']['name']}|{self.selected_country}|{student_data['doc_date'].strftime('%Y-%m-%d')}|{student_data['exp_date'].strftime('%Y-%m-%d')}\n"
                     f.write(line)
                 f.flush()
-            
+
             self.stats["students_saved"] += len(self.student_buffer)
             self.student_buffer.clear()
         except Exception as e:
-            print(f"⚠️ Flush error: {e}")
+            logger.error(f"⚠️ Flush error: {e}")
 
     def process_one(self, num):
         try:
@@ -865,18 +881,19 @@ class UnlimitedIDCardGenerator:
             self.save_student(student_data)
             return True
         except Exception as e:
+            logger.error(f"Error processing student {num}: {e}")
             return False
 
     def generate_bulk(self, quantity):
         config = COUNTRY_CONFIG[self.selected_country]
-        print(f"\n⚡⚡⚡⚡⚡ Generating {quantity} IDs for {config['flag']} {config['name']}")
-        print(f"✅ {len(self.all_colleges)} colleges available")
-        print(f"✅ Using EXACT names from JSON (zero modifications)")
-        print(f"✅ Dates within 90 days (SheerID verified)")
-        print(f"✅ SIMPLE FORMAT: Clean layout like STU36259874.png")
-        print(f"⚡⚡⚡⚡⚡ ULTRA MEGA FAST: 5000 workers, 250 sessions, 1000 batch")
-        print("="*70)
-        
+        logger.info(f"⚡⚡⚡⚡⚡ Generating {quantity} IDs for {config['flag']} {config['name']}")
+        logger.info(f"✅ {len(self.all_colleges)} colleges available")
+        logger.info("✅ Using EXACT names from JSON (zero modifications)")
+        logger.info("✅ Dates within 90 days (SheerID verified)")
+        logger.info("✅ SIMPLE FORMAT: Clean layout like STU36259874.png")
+        logger.info("⚡⚡⚡⚡⚡ ULTRA MEGA FAST: 5000 workers, 250 sessions, 1000 batch")
+        logger.info("=" * 70)
+
         start = time.time()
         success = 0
         
