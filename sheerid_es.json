@@ -1,0 +1,29 @@
+[
+  {
+    "id": 10002359,
+    "name": "Barcelona School of Economics",
+    "country": "ES",
+    "query_found": "barcelona",
+    "extraction_date": "2025-11-10",
+    "type": "UNIVERSITY",
+    "city": "Barcelona"
+  },
+  {
+    "id": 10002547,
+    "name": "Mia Digital University",
+    "country": "ES",
+    "query_found": "u",
+    "extraction_date": "2025-11-10",
+    "type": "UNIVERSITY",
+    "city": "Barcelona"
+  },
+  {
+    "id": 10007627,
+    "name": "Institute For Bioengineering Of Catalonia",
+    "country": "ES",
+    "query_found": "ib",
+    "extraction_date": "2025-11-10",
+    "type": "UNIVERSITY",
+    "city": "Barcelona"
+  }
+]
