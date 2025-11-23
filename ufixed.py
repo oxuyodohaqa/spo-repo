@@ -352,6 +352,9 @@ class UnlimitedIDCardGenerator:
             "black": "#000000",
             "gray": "#6b7280",
         }
+
+        # Reuse the same background image that b.py relies on
+        self.template_path = Path(__file__).parent / "mentahan.jpg"
         
         # ⚡ CACHE CURRENT YEAR
         self.current_year = datetime.now(timezone.utc).year
@@ -502,6 +505,18 @@ class UnlimitedIDCardGenerator:
     @lru_cache(maxsize=1)
     def load_fonts(self):
         try:
+            playfair_path = Path(__file__).parent / "PlayfairDisplay-VariableFont_wght.ttf"
+
+            if playfair_path.exists():
+                return {
+                    'title': ImageFont.truetype(str(playfair_path), 64),
+                    'header': ImageFont.truetype(str(playfair_path), 50),
+                    'name': ImageFont.truetype(str(playfair_path), 54),
+                    'normal': ImageFont.truetype(str(playfair_path), 28),
+                    'small': ImageFont.truetype(str(playfair_path), 20),
+                    'bold': ImageFont.truetype(str(playfair_path), 32),
+                }
+
             if os.name == 'nt':
                 return {
                     'title': ImageFont.truetype("arialbd.ttf", 24),
@@ -511,9 +526,10 @@ class UnlimitedIDCardGenerator:
                     'small': ImageFont.truetype("arial.ttf", 12),
                     'bold': ImageFont.truetype("arialbd.ttf", 14),
                 }
-            else:
-                return {k: ImageFont.load_default() for k in ['title', 'header', 'name', 'normal', 'small', 'bold']}
-        except:
+
+            return {k: ImageFont.load_default() for k in ['title', 'header', 'name', 'normal', 'small', 'bold']}
+        except Exception as exc:
+            logger.warning("Falling back to default fonts due to: %s", exc)
             return {k: ImageFont.load_default() for k in ['title', 'header', 'name', 'normal', 'small', 'bold']}
 
     def get_faker(self):
@@ -682,6 +698,8 @@ class UnlimitedIDCardGenerator:
         # Generate registration and card numbers
         reg_number = f"REG/{self.selected_country}/{fake.random_number(digits=6, fix_len=True)}"
         card_number = f"CARD-{fake.random_number(digits=4, fix_len=True)}-{fake.random_number(digits=4, fix_len=True)}"
+
+        country_label = f"{config['flag']} {config['name']}"
         
         return {
             "full_name": full_name,
@@ -693,7 +711,8 @@ class UnlimitedIDCardGenerator:
             "reg_number": reg_number,
             "card_number": card_number,
             "academic_year": f"{self.current_year}-{self.current_year+1}",
-            "country": config['name']
+            "country": country_label,
+            "country_code": self.selected_country
         }
 
     def create_simple_id_card(self, student_data):
@@ -701,145 +720,69 @@ class UnlimitedIDCardGenerator:
         college_name = college['name']
         college_id = college['id']
         student_id = student_data['student_id']
-        
+
         filename = f"{student_id}_{college_id}.png"
         filepath = os.path.join(self.receipts_dir, filename)
-        
-        # Simple card size
-        width, height = 800, 500
-        card = Image.new("RGB", (width, height), self.colors["white"])
-        draw = ImageDraw.Draw(card)
-        
-        # Header with college name
-        draw.rectangle([0, 0, width, 60], fill=self.colors["blue"])
-        draw.text((width//2, 30), college_name, 
-                  fill=self.colors["white"], font=self.fonts['title'], anchor="mm")
-        
-        # Country badge
-        draw.rectangle([width-120, 65, width-10, 95], 
-                      fill=self.colors["light_blue"], outline=self.colors["blue"], width=1)
-        draw.text((width-65, 80), student_data["country"], 
-                  fill=self.colors["blue"], font=self.fonts['header'], anchor="mm")
-        
-        # Photo area
-        photo_x, photo_y = 30, 80
-        photo_size_x, photo_size_y = 120, 150
-        
-        # Use real photo or placeholder
+
         try:
-            photo = self.get_photo_from_cache()
-            photo = photo.resize((photo_size_x, photo_size_y), Image.Resampling.LANCZOS)
-        except:
-            photo = self.create_simple_photo()
-        
-        card.paste(photo, (photo_x, photo_y))
-        
-        # Student information (right side)
-        info_x = photo_x + photo_size_x + 20
-        current_y = photo_y
-        
-        # Name
-        draw.text((info_x, current_y), "Name:", fill=self.colors["gray"], font=self.fonts['normal'])
-        draw.text((info_x, current_y + 20), student_data["full_name"], 
-                  fill=self.colors["blue"], font=self.fonts['name'])
-        current_y += 50
-        
-        # Student ID
-        draw.text((info_x, current_y), "Student ID:", fill=self.colors["gray"], font=self.fonts['normal'])
-        draw.text((info_x, current_y + 20), student_data["student_id"], 
-                  fill=self.colors["black"], font=self.fonts['normal'])
-        current_y += 50
-        
-        # Program
-        draw.text((info_x, current_y), "Program:", fill=self.colors["gray"], font=self.fonts['normal'])
-        
-        # Wrap long program names
-        program = student_data["program"]
-        if len(program) > 30:
-            words = program.split()
-            lines = []
-            current_line = []
-            
-            for word in words:
-                test_line = ' '.join(current_line + [word])
-                if len(test_line) <= 30:
-                    current_line.append(word)
-                else:
-                    lines.append(' '.join(current_line))
-                    current_line = [word]
-            if current_line:
-                lines.append(' '.join(current_line))
-            
-            for i, line in enumerate(lines):
-                draw.text((info_x, current_y + 20 + (i*18)), line, 
-                         fill=self.colors["black"], font=self.fonts['normal'])
-            current_y += 20 + (len(lines) * 18)
-        else:
-            draw.text((info_x, current_y + 20), program, fill=self.colors["black"], font=self.fonts['normal'])
-            current_y += 45
-        
-        # Dates section
-        dates_x = info_x
-        dates_y = current_y
-        
-        draw.text((dates_x, dates_y), "Issue Date:", fill=self.colors["gray"], font=self.fonts['normal'])
-        draw.text((dates_x, dates_y + 20), student_data["doc_date"].strftime('%m/%d/%Y'), 
-                  fill=self.colors["black"], font=self.fonts['normal'])
-        
-        draw.text((dates_x + 150, dates_y), "Valid Until:", fill=self.colors["gray"], font=self.fonts['normal'])
-        draw.text((dates_x + 150, dates_y + 20), student_data["exp_date"].strftime('%m/%d/%Y'), 
-                  fill=self.colors["blue"], font=self.fonts['normal'])
-        
-        # Separator line
-        draw.line([30, height-130, width-30, height-130], fill=self.colors["gray"], width=1)
-        
-        # Bottom section with registration info
-        bottom_y = height - 120
-        
-        # Left side - Academic Year and REG No
-        draw.text((30, bottom_y), "Academic Year:", fill=self.colors["gray"], font=self.fonts['normal'])
-        draw.text((30, bottom_y + 20), student_data["academic_year"], 
-                  fill=self.colors["blue"], font=self.fonts['normal'])
-        
-        draw.text((30, bottom_y + 45), "REG No:", fill=self.colors["gray"], font=self.fonts['normal'])
-        draw.text((30, bottom_y + 65), student_data["reg_number"], 
-                  fill=self.colors["black"], font=self.fonts['normal'])
-        
-        # Right side - Card No and Issued By
-        draw.text((width-200, bottom_y), "Card No:", fill=self.colors["gray"], font=self.fonts['normal'])
-        draw.text((width-200, bottom_y + 20), student_data["card_number"], 
-                  fill=self.colors["black"], font=self.fonts['normal'])
-        
-        draw.text((width-200, bottom_y + 45), "Issued By:", fill=self.colors["gray"], font=self.fonts['normal'])
-        draw.text((width-200, bottom_y + 65), "Registrar", 
-                  fill=self.colors["blue"], font=self.fonts['normal'])
-        
-        # Footer
-        footer_y = height - 40
-        draw.rectangle([0, footer_y, width, height], fill=self.colors["light_blue"])
-        
-        draw.text((width//2, footer_y + 12), 
-                  f"Official Student ID - {student_data['country']}", 
-                  fill=self.colors["blue"], font=self.fonts['small'], anchor="mm")
-        
-        current_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S UTC")
-        draw.text((width//2, footer_y + 28), f"Generated: {current_time}", 
-                  fill=self.colors["gray"], font=self.fonts['small'], anchor="mm")
-        
-        # Border
-        draw.rectangle([0, 0, width-1, height-1], outline=self.colors["blue"], width=2)
-        
-        # AUTHORIZED stamp
-        draw.text((width-100, height-80), "AUTHORIZED", 
-                  fill=self.colors["blue"], font=self.fonts['header'])
-        draw.text((width-100, height-60), "DOCUMENT", 
-                  fill=self.colors["blue"], font=self.fonts['header'])
-        
-        # FAST SAVE
-        card.save(filepath, "PNG", optimize=True)
+            base = Image.open(self.template_path).convert("RGB")
+        except FileNotFoundError:
+            logger.warning("Template image %s not found, falling back to plain card", self.template_path)
+            base = Image.new("RGB", (800, 500), self.colors["white"])
+
+        width, height = base.size
+        draw = ImageDraw.Draw(base)
+
+        # College name at the top
+        college_font = self.fonts.get('title', ImageFont.load_default())
+        college_bbox = draw.textbbox((0, 0), college_name, font=college_font)
+        college_width = college_bbox[2] - college_bbox[0]
+        college_height = college_bbox[3] - college_bbox[1]
+        college_x = (width - college_width) / 2
+        college_y = max(30, height * 0.05)
+
+        padding_x = 40
+        padding_y = 24
+        draw.rectangle(
+            [
+                college_x - padding_x,
+                college_y - padding_y,
+                college_x + college_width + padding_x,
+                college_y + college_height + padding_y,
+            ],
+            fill=self.colors["white"],
+        )
+        draw.text((college_x, college_y), college_name, font=college_font, fill=self.colors["blue"])
+
+        # Student name centered in the body
+        name_font = self.fonts.get('name', ImageFont.load_default())
+        full_name = student_data["full_name"]
+        name_bbox = draw.textbbox((0, 0), full_name, font=name_font)
+        name_width = name_bbox[2] - name_bbox[0]
+        name_height = name_bbox[3] - name_bbox[1]
+        name_x = (width - name_width) / 2
+        name_y = height * 0.4
+
+        draw.rectangle(
+            [
+                name_x - padding_x,
+                name_y - padding_y,
+                name_x + name_width + padding_x,
+                name_y + name_height + padding_y,
+            ],
+            fill=self.colors["white"],
+        )
+        draw.text((name_x, name_y), full_name, font=name_font, fill=self.colors["black"])
+
+        # Minimal extra details near the bottom to keep context
+        detail_font = self.fonts.get('normal', ImageFont.load_default())
+        detail_y = height * 0.75
+        draw.text((40, detail_y), f"Student ID: {student_data['student_id']}", font=detail_font, fill=self.colors["blue"])
+        draw.text((40, detail_y + 32), f"Country: {student_data['country']}", font=detail_font, fill=self.colors["gray"])
+
+        base.save(filepath, "PNG", quality=95, optimize=True)
         self.stats["ids_generated"] += 1
-        
-        return student_data
+        return filepath
 
     def save_student(self, student_data):
         """⚡⚡⚡⚡⚡ MEGA BATCH SAVE - 1000 at once"""
