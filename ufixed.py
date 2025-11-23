@@ -22,6 +22,28 @@ logger = logging.getLogger(__name__)
 TEMPLATE_PATH = Path(__file__).parent / "mentahan.jpg"
 DEFAULT_OUTPUT_DIR = Path("receipts")
 
+# Common country presets so callers can reuse the same layout without retyping flags.
+COUNTRY_PRESETS: Dict[str, str] = {
+    "indonesia": "🇮🇩",
+    "malaysia": "🇲🇾",
+    "singapore": "🇸🇬",
+    "india": "🇮🇳",
+    "philippines": "🇵🇭",
+    "thailand": "🇹🇭",
+    "vietnam": "🇻🇳",
+    "brunei": "🇧🇳",
+    "pakistan": "🇵🇰",
+    "bangladesh": "🇧🇩",
+    "sri lanka": "🇱🇰",
+    "nepal": "🇳🇵",
+    "myanmar": "🇲🇲",
+    "cambodia": "🇰🇭",
+    "laos": "🇱🇦",
+    "china": "🇨🇳",
+    "japan": "🇯🇵",
+    "south korea": "🇰🇷",
+}
+
 
 @dataclass
 class CardData:
@@ -89,6 +111,25 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont
     if current:
         lines.append(" ".join(current))
     return "\n".join(lines)
+
+
+def resolve_country_inputs(country: str, country_flag: str | None) -> Tuple[str, str]:
+    """Return a normalized country name and flag.
+
+    The layout stays the same for every country; this helper simply keeps
+    the previous country list available so callers can skip typing flags.
+    """
+
+    normalized = country.strip()
+    if country_flag:
+        return normalized, country_flag
+
+    preset = COUNTRY_PRESETS.get(normalized.lower())
+    if preset:
+        return normalized, preset
+
+    logger.warning("No preset flag found for %s; leaving flag blank", normalized)
+    return normalized, ""
 
 
 def paste_photo(base: Image.Image, draw: ImageDraw.ImageDraw, data: CardData, area: Tuple[int, int, int, int]) -> None:
@@ -202,19 +243,28 @@ def render_card(data: CardData, output_path: Path) -> Path:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Render an ID card with a consistent layout for any country.")
-    parser.add_argument("college_name", help="College name to display at the top")
-    parser.add_argument("student_name", help="Primary student name")
-    parser.add_argument("class_name", help="Class or major")
-    parser.add_argument("phone", help="Phone number")
-    parser.add_argument("ttl", help="Birth details (TTL)")
-    parser.add_argument("student_id", help="Student ID")
-    parser.add_argument("address", help="Address block")
-    parser.add_argument("admission_period", help="Admission period label")
-    parser.add_argument("country", help="Country name")
-    parser.add_argument("country_flag", help="Country flag emoji or shorthand")
+    parser.add_argument("college_name", nargs="?", help="College name to display at the top")
+    parser.add_argument("student_name", nargs="?", help="Primary student name")
+    parser.add_argument("class_name", nargs="?", help="Class or major")
+    parser.add_argument("phone", nargs="?", help="Phone number")
+    parser.add_argument("ttl", nargs="?", help="Birth details (TTL)")
+    parser.add_argument("student_id", nargs="?", help="Student ID")
+    parser.add_argument("address", nargs="?", help="Address block")
+    parser.add_argument("admission_period", nargs="?", help="Admission period label")
+    parser.add_argument("country", nargs="?", help="Country name")
+    parser.add_argument(
+        "--country-flag",
+        dest="country_flag",
+        help="Country flag emoji or shorthand (auto-filled for common countries)",
+    )
     parser.add_argument("contact_info", help="Footer contact info")
     parser.add_argument("--alias", help="Secondary name line", default=None)
     parser.add_argument("--photo", type=Path, help="Path to a photo to place on the card")
+    parser.add_argument(
+        "--list-countries",
+        action="store_true",
+        help="Show built-in country presets and exit",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -224,8 +274,37 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def require_fields(args: argparse.Namespace) -> None:
+    missing = [
+        name
+        for name in [
+            "college_name",
+            "student_name",
+            "class_name",
+            "phone",
+            "ttl",
+            "student_id",
+            "address",
+            "admission_period",
+            "country",
+            "contact_info",
+        ]
+        if getattr(args, name) is None
+    ]
+    if missing:
+        raise SystemExit(f"Missing required fields: {', '.join(missing)}")
+
+
 def main() -> None:
     args = parse_args()
+    if args.list_countries:
+        print("Available country presets:")
+        for name, flag in sorted(COUNTRY_PRESETS.items()):
+            print(f"- {flag} {name.title()}")
+        return
+
+    require_fields(args)
+    country, country_flag = resolve_country_inputs(args.country, args.country_flag)
     data = CardData(
         college_name=args.college_name,
         student_name=args.student_name,
@@ -236,8 +315,8 @@ def main() -> None:
         student_id=args.student_id,
         address=args.address,
         admission_period=args.admission_period,
-        country=args.country,
-        country_flag=args.country_flag,
+        country=country,
+        country_flag=country_flag,
         contact_info=args.contact_info,
         photo_path=args.photo,
     )
