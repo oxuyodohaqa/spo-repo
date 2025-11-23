@@ -23,8 +23,8 @@ FONT_SIZE = 50
 TEXT_COLOR = "#051d40"
 CENTER_X = 675
 POS_Y = 200
-BG_PADDING_X = 50   # Padding horizontal background putih
-BG_PADDING_Y = 35   # Padding vertikal background putih
+NAME_BG_WIDTH = 900    # Lebar area yang dibersihkan untuk nama
+NAME_BG_HEIGHT = 140   # Tinggi area yang dibersihkan untuk nama
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -96,6 +96,13 @@ def generate_image_local(first_name: str, last_name: str, user_id: int) -> str |
         draw = ImageDraw.Draw(base)
         font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
 
+        # Bersihkan area nama dengan kotak tetap agar teks lama tidak tersisa
+        bg_left = CENTER_X - (NAME_BG_WIDTH / 2)
+        bg_top = POS_Y - (NAME_BG_HEIGHT / 2)
+        bg_right = CENTER_X + (NAME_BG_WIDTH / 2)
+        bg_bottom = POS_Y + (NAME_BG_HEIGHT / 2)
+        draw.rectangle([bg_left, bg_top, bg_right, bg_bottom], fill="white")
+
         # Hitung posisi agar teks berada di tengah
         text_bbox = draw.textbbox((0, 0), full_name, font=font)
         text_width = text_bbox[2] - text_bbox[0]
@@ -103,12 +110,6 @@ def generate_image_local(first_name: str, last_name: str, user_id: int) -> str |
         
         x = CENTER_X - (text_width / 2)
         y = POS_Y
-
-        # Tambahkan background putih di belakang teks untuk menutupi teks lama
-        draw.rectangle(
-            [x - BG_PADDING_X, y - BG_PADDING_Y, x + text_width + BG_PADDING_X, y + text_height + BG_PADDING_Y],
-            fill="white"
-        )
 
         # Tulis teks nama
         draw.text((x, y), full_name, font=font, fill=TEXT_COLOR)
